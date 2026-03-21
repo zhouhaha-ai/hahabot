@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import select
 
 from app.db.models import ChatMessage, ChatSession
@@ -20,6 +22,39 @@ def test_get_session_returns_messages(client, seeded_session):
     assert response.status_code == 200
     assert response.json()["session"]["id"] == str(seeded_session.id)
     assert len(response.json()["messages"]) == 1
+
+
+def test_list_sessions_prefers_recent_message_activity(client, db_session):
+    now = datetime.now(timezone.utc)
+
+    older_session = ChatSession(
+        title="Older session",
+        created_at=now - timedelta(days=2),
+        updated_at=now - timedelta(days=2),
+    )
+    newer_session = ChatSession(
+        title="Newer session",
+        created_at=now - timedelta(days=1),
+        updated_at=now - timedelta(days=1),
+    )
+    db_session.add_all([older_session, newer_session])
+    db_session.flush()
+
+    db_session.add(
+        ChatMessage(
+            session_id=older_session.id,
+            role="user",
+            content="Most recent activity happened here",
+            sequence=1,
+            created_at=now,
+        )
+    )
+    db_session.commit()
+
+    response = client.get("/api/sessions")
+
+    assert response.status_code == 200
+    assert response.json()[0]["id"] == str(older_session.id)
 
 
 def test_delete_session_removes_messages(client, db_session, seeded_session):
