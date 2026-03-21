@@ -70,6 +70,48 @@ GitHub Actions publishes the application images to Docker Hub:
 The PostgreSQL container continues to use the official `postgres:16-alpine` image from Docker Hub.
 Only pushes to `main` refresh the `latest` tag. Other workflow runs publish `sha-<commit>` tags for explicit deployment.
 
+### 1. Configure GitHub Secrets
+
+In the GitHub repository settings, add these Actions secrets:
+
+- `DOCKERHUB_USERNAME=zhouhahaai`
+- `DOCKERHUB_TOKEN=<docker-hub-access-token>`
+
+After that, the workflow at [.github/workflows/docker-publish.yml](/Users/zhouhaha/Desktop/haha-bot/.worktrees/codex-haha-chatbot/.github/workflows/docker-publish.yml) will publish:
+
+- `zhouhahaai/hahabot-frontend:latest`
+- `zhouhahaai/hahabot-backend:latest`
+
+when `main` is updated, plus `sha-<commit>` tags for explicit deployments.
+
+### 2. Prepare the Server
+
+Clone the repository onto the server and create the runtime `.env` file:
+
+```bash
+git clone git@github.com:zhouhaha-ai/hahabot.git
+cd hahabot
+cp .env.example .env
+```
+
+Set these values in `.env`:
+
+```text
+DOCKERHUB_NAMESPACE=zhouhahaai
+IMAGE_TAG=latest
+POSTGRES_DB=haha_chatbot
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=<strong-password>
+DATABASE_URL=postgresql+psycopg://postgres:<strong-password>@postgres:5432/haha_chatbot
+QWEN_API_KEY=<your-qwen-api-key>
+QWEN_MODEL=qwen-plus
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+`latest` is the stable deployment channel from `main`. If you need to deploy an exact build, replace it with `IMAGE_TAG=sha-<github-commit-sha>`.
+
+### 3. First Deployment
+
 On the server, deploy by pulling images and starting the stack:
 
 ```bash
@@ -77,10 +119,59 @@ chmod +x deploy.sh deploy/deploy.sh
 ./deploy.sh
 ```
 
+`deploy.sh` does four things:
+
+- validates `.env` and `docker-compose.yml`
+- runs `docker compose pull`
+- runs `docker compose up -d`
+- smoke-checks `http://localhost/api/sessions`
+
+The backend container runs `alembic upgrade head` on startup, so database migrations are applied automatically during deployment.
+
+### 4. Verification
+
 Check the session API through the Nginx proxy:
 
 ```bash
 curl http://localhost/api/sessions
+```
+
+Check the running containers:
+
+```bash
+docker compose ps
+```
+
+If you want to inspect logs:
+
+```bash
+docker compose logs -f frontend
+docker compose logs -f backend
+docker compose logs -f postgres
+```
+
+### 5. Update an Existing Deployment
+
+If you are deploying the latest version from `main`:
+
+```bash
+git pull
+./deploy.sh
+```
+
+If you want to deploy a specific GitHub Actions image build:
+
+```bash
+sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=sha-<github-commit-sha>/' .env
+./deploy.sh
+```
+
+### 6. Roll Back
+
+To roll back, set `.env` back to a previous `IMAGE_TAG=sha-...` and redeploy:
+
+```bash
+./deploy.sh
 ```
 
 Stop the stack:
