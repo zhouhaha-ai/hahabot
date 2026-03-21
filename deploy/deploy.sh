@@ -29,10 +29,32 @@ require_env_var_in_file() {
   fi
 }
 
+is_docker_permission_error() {
+  local stderr_output="$1"
+  grep -Eiq \
+    'permission denied while trying to connect to the Docker daemon socket|docker\.sock: connect: permission denied' \
+    <<<"$stderr_output"
+}
+
 compose() {
   if docker compose version >/dev/null 2>&1; then
-    if docker compose "$@"; then
+    local stderr_file
+    local exit_code
+    local stderr_output
+    stderr_file="$(mktemp)"
+
+    if docker compose "$@" 2>"$stderr_file"; then
+      rm -f "$stderr_file"
       return
+    else
+      exit_code=$?
+      stderr_output="$(cat "$stderr_file")"
+      rm -f "$stderr_file"
+      printf '%s\n' "$stderr_output" >&2
+
+      if ! is_docker_permission_error "$stderr_output"; then
+        return "$exit_code"
+      fi
     fi
   fi
 
