@@ -33,7 +33,7 @@ test_deploy_happy_path() {
 
   mkdir -p "$project_dir" "$bin_dir"
   cat > "$project_dir/.env" <<'EOF'
-DOCKERHUB_NAMESPACE=zhouhaha
+DOCKERHUB_NAMESPACE=zhouhahaai
 POSTGRES_DB=haha_chatbot
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
@@ -142,7 +142,7 @@ test_deploy_falls_back_to_sudo_when_docker_needs_privilege() {
 
   mkdir -p "$project_dir" "$bin_dir"
   cat > "$project_dir/.env" <<'EOF'
-DOCKERHUB_NAMESPACE=zhouhaha
+DOCKERHUB_NAMESPACE=zhouhahaai
 POSTGRES_DB=haha_chatbot
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
@@ -199,7 +199,7 @@ test_deploy_does_not_fall_back_to_sudo_for_non_permission_errors() {
 
   mkdir -p "$project_dir" "$bin_dir"
   cat > "$project_dir/.env" <<'EOF'
-DOCKERHUB_NAMESPACE=zhouhaha
+DOCKERHUB_NAMESPACE=zhouhahaai
 POSTGRES_DB=haha_chatbot
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
@@ -215,7 +215,7 @@ printf 'docker %s\n' "\$*" >> "$command_log"
 if [[ "\$*" == "compose version" ]]; then
   exit 0
 fi
-echo "manifest for zhouhaha/hahabot-backend:latest not found" >&2
+echo "manifest for zhouhahaai/hahabot-backend:latest not found" >&2
 exit 1
 EOF
 
@@ -243,7 +243,7 @@ EOF
     fail "deploy.sh should not retry with sudo for non-permission errors"
   fi
 
-  assert_contains "$stderr_file" "manifest for zhouhaha/hahabot-backend:latest not found"
+  assert_contains "$stderr_file" "manifest for zhouhahaai/hahabot-backend:latest not found"
 }
 
 test_deploy_happy_path

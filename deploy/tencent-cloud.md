@@ -36,7 +36,7 @@ Edit `.env` and set:
 Recommended image settings:
 
 ```text
-DOCKERHUB_NAMESPACE=zhouhaha
+DOCKERHUB_NAMESPACE=zhouhahaai
 IMAGE_TAG=latest
 ```
 
@@ -52,8 +52,8 @@ DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/haha_chatbot
 
 GitHub Actions publishes two application images to Docker Hub on pushes to `main`, pushes to `codex/haha-chatbot`, and manual workflow dispatches:
 
-- `zhouhaha/hahabot-frontend`
-- `zhouhaha/hahabot-backend`
+- `zhouhahaai/hahabot-frontend`
+- `zhouhahaai/hahabot-backend`
 
 Required GitHub repository secrets:
 

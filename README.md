@@ -31,7 +31,7 @@ Set at least:
 Recommended image settings:
 
 ```text
-DOCKERHUB_NAMESPACE=zhouhaha
+DOCKERHUB_NAMESPACE=zhouhahaai
 IMAGE_TAG=latest
 ```
 
@@ -64,8 +64,8 @@ npm run build
 
 GitHub Actions publishes the application images to Docker Hub:
 
-- `zhouhaha/hahabot-frontend`
-- `zhouhaha/hahabot-backend`
+- `zhouhahaai/hahabot-frontend`
+- `zhouhahaai/hahabot-backend`
 
 The PostgreSQL container continues to use the official `postgres:16-alpine` image from Docker Hub.
 Only pushes to `main` refresh the `latest` tag. Other workflow runs publish `sha-<commit>` tags for explicit deployment.
