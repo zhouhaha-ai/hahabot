@@ -32,7 +32,7 @@ Backend tests:
 
 ```bash
 cd backend
-../.venv/bin/python -m pytest tests -v
+./.venv/bin/python -m pytest tests -v
 ```
 
 Frontend tests:
