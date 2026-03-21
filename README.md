@@ -54,20 +54,14 @@ npm run build
 Start the full stack:
 
 ```bash
-docker compose up --build
+chmod +x deploy.sh deploy/deploy.sh
+./deploy.sh
 ```
 
 Check the session API through the Nginx proxy:
 
 ```bash
 curl http://localhost/api/sessions
-```
-
-Detached run:
-
-```bash
-docker compose up --build -d
-docker compose ps
 ```
 
 Stop the stack:

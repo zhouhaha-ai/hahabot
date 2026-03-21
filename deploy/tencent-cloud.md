@@ -40,8 +40,8 @@ DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/haha_chatbot
 ## Start the Stack
 
 ```bash
-docker compose up --build -d
-docker compose ps
+chmod +x deploy.sh deploy/deploy.sh
+./deploy.sh
 ```
 
 Open the app in a browser:
@@ -52,9 +52,10 @@ http://<your-server-ip>/
 
 ## Update Deployment
 
+After syncing new code onto the server, rerun:
+
 ```bash
-git pull
-docker compose up --build -d
+./deploy.sh
 ```
 
 ## Operational Checks
@@ -72,6 +73,16 @@ docker compose logs -f frontend
 docker compose logs -f backend
 docker compose logs -f postgres
 ```
+
+## Stable Deployment Script
+
+The repository includes a root entrypoint [`deploy.sh`](/Users/zhouhaha/Desktop/haha-bot/.worktrees/codex-haha-chatbot/deploy.sh) backed by [`deploy/deploy.sh`](/Users/zhouhaha/Desktop/haha-bot/.worktrees/codex-haha-chatbot/deploy/deploy.sh). It:
+
+- verifies `.env` and `docker-compose.yml` exist
+- uses `docker compose` directly when available, otherwise falls back to `sudo docker compose`
+- rebuilds and restarts the stack
+- checks `docker compose ps`
+- smoke-checks `http://localhost/api/sessions`
 
 ## Rollback / Stop
 
