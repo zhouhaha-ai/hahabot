@@ -1,8 +1,193 @@
 # haha-chatbot
 
-Simple full-stack chatbot with React, FastAPI, PostgreSQL, and SSE streaming. Session memory is scoped to the current chat session and persists across page refreshes; cross-session memory is intentionally disabled.
+一个使用 React、FastAPI、PostgreSQL 和 SSE 流式输出实现的全栈聊天机器人项目。聊天记忆只在当前会话内生效，跨会话不共享上下文。
 
-## Stack
+## 中文说明
+
+### 技术栈
+
+- 前端：React 18 + TypeScript + Vite
+- 后端：FastAPI + SQLAlchemy + Alembic
+- 数据库：PostgreSQL
+- 流式协议：POST + `text/event-stream`
+- 部署方式：Docker Compose + Nginx
+
+### 环境变量
+
+先从示例文件复制一份 `.env`：
+
+```bash
+cp .env.example .env
+```
+
+至少需要配置这些变量：
+
+- `DOCKERHUB_NAMESPACE`
+- `IMAGE_TAG`
+- `QWEN_API_KEY`
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `DATABASE_URL`
+
+推荐镜像配置：
+
+```text
+DOCKERHUB_NAMESPACE=zhouhahaai
+IMAGE_TAG=latest
+```
+
+`latest` 表示主线稳定版本。如果你想部署某一次 GitHub Actions 生成的精确镜像，把它改成 `IMAGE_TAG=sha-<github-commit-sha>`。
+
+### 本地开发
+
+后端测试：
+
+```bash
+cd backend
+./.venv/bin/python -m pytest tests -v
+```
+
+前端测试：
+
+```bash
+cd frontend
+npm run test
+```
+
+前端生产构建：
+
+```bash
+cd frontend
+npm run build
+```
+
+### Docker 镜像发布
+
+GitHub Actions 会把应用镜像发布到 Docker Hub：
+
+- `zhouhahaai/hahabot-frontend`
+- `zhouhahaai/hahabot-backend`
+
+PostgreSQL 继续直接使用官方镜像 `postgres:16-alpine`。
+
+只有推送到 `main` 时才会刷新 `latest` 标签。其他分支推送或手动触发 workflow 时，只会发布 `sha-<commit>` 标签。
+
+### 1. 配置 GitHub Secrets
+
+在 GitHub 仓库设置里添加这两个 Actions secrets：
+
+- `DOCKERHUB_USERNAME=zhouhahaai`
+- `DOCKERHUB_TOKEN=<docker-hub-access-token>`
+
+配置完成后，仓库内的 [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml) 会自动发布镜像。
+
+### 2. 准备服务器
+
+首次部署时，在服务器上执行：
+
+```bash
+git clone git@github.com:zhouhaha-ai/hahabot.git
+cd hahabot
+cp .env.example .env
+```
+
+`.env` 推荐配置如下：
+
+```text
+DOCKERHUB_NAMESPACE=zhouhahaai
+IMAGE_TAG=latest
+POSTGRES_DB=haha_chatbot
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=<strong-password>
+DATABASE_URL=postgresql+psycopg://postgres:<strong-password>@postgres:5432/haha_chatbot
+QWEN_API_KEY=<your-qwen-api-key>
+QWEN_MODEL=qwen-plus
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+### 3. 首次部署
+
+服务器端直接执行：
+
+```bash
+chmod +x deploy.sh deploy/deploy.sh
+./deploy.sh
+```
+
+`deploy.sh` 会做这几件事：
+
+- 检查 `.env` 和 `docker-compose.yml`
+- 执行 `docker compose pull`
+- 执行 `docker compose up -d`
+- 对 `http://localhost/api/sessions` 做 smoke check
+
+后端容器启动时会自动执行 `alembic upgrade head`，所以数据库迁移会在部署过程中自动应用。
+
+### 4. 验收
+
+检查 API：
+
+```bash
+curl http://localhost/api/sessions
+```
+
+检查容器状态：
+
+```bash
+docker compose ps
+```
+
+查看日志：
+
+```bash
+docker compose logs -f frontend
+docker compose logs -f backend
+docker compose logs -f postgres
+```
+
+### 5. 更新部署
+
+如果要部署 `main` 上最新的稳定版本：
+
+```bash
+git pull
+./deploy.sh
+```
+
+如果要部署某个精确镜像版本：
+
+```bash
+sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=sha-<github-commit-sha>/' .env
+./deploy.sh
+```
+
+### 6. 回滚
+
+把 `.env` 里的 `IMAGE_TAG` 改回之前的 `sha-...`，然后重新执行：
+
+```bash
+./deploy.sh
+```
+
+停止服务：
+
+```bash
+docker compose down
+```
+
+### 说明
+
+- 前端通过 Nginx 代理 `/api` 到后端，也支持 SSE 流式响应。
+- 现在服务器不会本地构建镜像，而是直接从 Docker Hub 拉取镜像部署。
+- 密钥必须放在 `.env` 或服务器环境变量中，不要提交到仓库。
+- 当前这个编码环境里没有 `docker` CLI，所以本地只验证了前后端测试、构建和部署脚本，没有在本机执行完整容器编排。
+
+## English
+
+Simple full-stack chatbot built with React, FastAPI, PostgreSQL, and SSE streaming. Session memory is scoped to the current chat session and persists across refreshes, but it is intentionally isolated across sessions.
+
+### Stack
 
 - Frontend: React 18 + TypeScript + Vite
 - Backend: FastAPI + SQLAlchemy + Alembic
@@ -10,9 +195,9 @@ Simple full-stack chatbot with React, FastAPI, PostgreSQL, and SSE streaming. Se
 - Streaming: POST + `text/event-stream`
 - Deployment: Docker Compose + Nginx
 
-## Environment
+### Environment
 
-Create a local `.env` from `.env.example`:
+Create `.env` from the example file:
 
 ```bash
 cp .env.example .env
@@ -35,9 +220,9 @@ DOCKERHUB_NAMESPACE=zhouhahaai
 IMAGE_TAG=latest
 ```
 
-Use `latest` for mainline deployments. For a branch or one-off release, set `IMAGE_TAG=sha-<github-commit-sha>`.
+Use `latest` for mainline deployments. For a branch build or one-off deployment, use `IMAGE_TAG=sha-<github-commit-sha>`.
 
-## Local Development
+### Local Development
 
 Backend tests:
 
@@ -60,33 +245,29 @@ cd frontend
 npm run build
 ```
 
-## Docker Deploy
+### Docker Deployment
 
-GitHub Actions publishes the application images to Docker Hub:
+GitHub Actions publishes application images to Docker Hub:
 
 - `zhouhahaai/hahabot-frontend`
 - `zhouhahaai/hahabot-backend`
 
-The PostgreSQL container continues to use the official `postgres:16-alpine` image from Docker Hub.
-Only pushes to `main` refresh the `latest` tag. Other workflow runs publish `sha-<commit>` tags for explicit deployment.
+PostgreSQL continues to run from the official `postgres:16-alpine` image.
+
+Only pushes to `main` refresh the `latest` tag. Other branch pushes or manual runs publish `sha-<commit>` tags for explicit deployments.
 
 ### 1. Configure GitHub Secrets
 
-In the GitHub repository settings, add these Actions secrets:
+Add these Actions secrets in the GitHub repository settings:
 
 - `DOCKERHUB_USERNAME=zhouhahaai`
 - `DOCKERHUB_TOKEN=<docker-hub-access-token>`
 
-After that, the workflow at [.github/workflows/docker-publish.yml](/Users/zhouhaha/Desktop/haha-bot/.worktrees/codex-haha-chatbot/.github/workflows/docker-publish.yml) will publish:
-
-- `zhouhahaai/hahabot-frontend:latest`
-- `zhouhahaai/hahabot-backend:latest`
-
-when `main` is updated, plus `sha-<commit>` tags for explicit deployments.
+The workflow at [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml) will publish the images.
 
 ### 2. Prepare the Server
 
-Clone the repository onto the server and create the runtime `.env` file:
+For first-time deployment:
 
 ```bash
 git clone git@github.com:zhouhaha-ai/hahabot.git
@@ -94,7 +275,7 @@ cd hahabot
 cp .env.example .env
 ```
 
-Set these values in `.env`:
+Recommended `.env` values:
 
 ```text
 DOCKERHUB_NAMESPACE=zhouhahaai
@@ -108,41 +289,39 @@ QWEN_MODEL=qwen-plus
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
 
-`latest` is the stable deployment channel from `main`. If you need to deploy an exact build, replace it with `IMAGE_TAG=sha-<github-commit-sha>`.
-
 ### 3. First Deployment
 
-On the server, deploy by pulling images and starting the stack:
+Run on the server:
 
 ```bash
 chmod +x deploy.sh deploy/deploy.sh
 ./deploy.sh
 ```
 
-`deploy.sh` does four things:
+`deploy.sh` will:
 
-- validates `.env` and `docker-compose.yml`
-- runs `docker compose pull`
-- runs `docker compose up -d`
-- smoke-checks `http://localhost/api/sessions`
+- validate `.env` and `docker-compose.yml`
+- run `docker compose pull`
+- run `docker compose up -d`
+- smoke-check `http://localhost/api/sessions`
 
-The backend container runs `alembic upgrade head` on startup, so database migrations are applied automatically during deployment.
+The backend container runs `alembic upgrade head` on startup, so schema migrations are applied automatically.
 
 ### 4. Verification
 
-Check the session API through the Nginx proxy:
+Check the API:
 
 ```bash
 curl http://localhost/api/sessions
 ```
 
-Check the running containers:
+Check running containers:
 
 ```bash
 docker compose ps
 ```
 
-If you want to inspect logs:
+View logs:
 
 ```bash
 docker compose logs -f frontend
@@ -150,25 +329,25 @@ docker compose logs -f backend
 docker compose logs -f postgres
 ```
 
-### 5. Update an Existing Deployment
+### 5. Updating a Deployment
 
-If you are deploying the latest version from `main`:
+To deploy the latest stable version from `main`:
 
 ```bash
 git pull
 ./deploy.sh
 ```
 
-If you want to deploy a specific GitHub Actions image build:
+To deploy a specific published image:
 
 ```bash
 sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=sha-<github-commit-sha>/' .env
 ./deploy.sh
 ```
 
-### 6. Roll Back
+### 6. Rollback
 
-To roll back, set `.env` back to a previous `IMAGE_TAG=sha-...` and redeploy:
+Set `IMAGE_TAG` back to a previous `sha-...` value and redeploy:
 
 ```bash
 ./deploy.sh
@@ -180,10 +359,9 @@ Stop the stack:
 docker compose down
 ```
 
-## Notes
+### Notes
 
-- The frontend proxies `/api` to the backend through Nginx, including SSE chat responses.
-- `deploy.sh` now runs `docker compose pull` and `docker compose up -d`; it does not build images on the server.
-- The backend container runs `alembic upgrade head` on startup, so schema migrations apply during deployment.
-- Secrets must stay in `.env` or server environment variables and must not be committed.
-- In the current coding environment, `docker` CLI is not installed, so Docker build commands were not executable here. Frontend and backend application tests were verified separately.
+- The frontend proxies `/api` to the backend through Nginx, including SSE responses.
+- The server no longer builds images locally; it pulls published images from Docker Hub.
+- Secrets must stay in `.env` or server-side environment variables and must never be committed.
+- In this coding environment, `docker` CLI is not available, so full container orchestration was not executed locally. Application tests, builds, and deployment scripts were verified separately.
