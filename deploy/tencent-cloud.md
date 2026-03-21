@@ -2,7 +2,7 @@
 
 ## Server
 
-- Host: `175.24.135.179`
+- Host: `<your-server-ip>`
 - User: `ubuntu`
 
 Keep credentials outside this repository. If any password or API key has been shared in chat or elsewhere, rotate it before production deployment.
@@ -12,7 +12,7 @@ Keep credentials outside this repository. If any password or API key has been sh
 Install Docker Engine and Docker Compose plugin on the server before deploying. Then clone the repository:
 
 ```bash
-ssh ubuntu@175.24.135.179
+ssh ubuntu@<your-server-ip>
 git clone git@github.com:zhouhaha-ai/hahabot.git
 cd hahabot
 ```
@@ -47,7 +47,7 @@ docker compose ps
 Open the app in a browser:
 
 ```text
-http://175.24.135.179/
+http://<your-server-ip>/
 ```
 
 ## Update Deployment
