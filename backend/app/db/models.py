@@ -48,6 +48,7 @@ class ChatMessage(Base):
             native_enum=False,
             create_constraint=True,
             validate_strings=True,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
         )
     )
     content: Mapped[str] = mapped_column(Text)

@@ -7,7 +7,7 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install --no-cache-dir . "uvicorn[standard]>=0.34,<1"
+RUN pip install --no-cache-dir --no-build-isolation . "uvicorn[standard]>=0.34,<1"
 
 COPY alembic.ini ./
 COPY alembic ./alembic
