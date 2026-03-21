@@ -20,10 +20,20 @@ require_command() {
   fi
 }
 
+require_env_var_in_file() {
+  local env_name="$1"
+  local env_file="$2"
+  if ! grep -Eq "^${env_name}=.+" "$env_file"; then
+    echo "Missing required environment variable: $env_name" >&2
+    exit 1
+  fi
+}
+
 compose() {
   if docker compose version >/dev/null 2>&1; then
-    docker compose "$@"
-    return
+    if docker compose "$@"; then
+      return
+    fi
   fi
 
   require_command sudo
@@ -35,11 +45,15 @@ main() {
   require_command curl
   require_file "$PROJECT_ROOT/.env"
   require_file "$PROJECT_ROOT/docker-compose.yml"
+  require_env_var_in_file "DOCKERHUB_NAMESPACE" "$PROJECT_ROOT/.env"
 
   cd "$PROJECT_ROOT"
 
-  echo "[deploy] building and starting containers"
-  compose up --build -d
+  echo "[deploy] pulling images"
+  compose pull
+
+  echo "[deploy] starting containers"
+  compose up -d
 
   echo "[deploy] checking compose status"
   compose ps

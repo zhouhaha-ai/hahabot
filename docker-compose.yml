@@ -17,8 +17,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   backend:
-    build:
-      context: ./backend
+    image: ${DOCKERHUB_NAMESPACE}/hahabot-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -27,8 +26,7 @@ services:
       - .env
 
   frontend:
-    build:
-      context: ./frontend
+    image: ${DOCKERHUB_NAMESPACE}/hahabot-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       - backend
