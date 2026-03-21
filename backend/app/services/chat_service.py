@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import AsyncIterator
 from uuid import UUID
 
@@ -15,8 +14,6 @@ from app.services.sse import format_sse
 from app.services.title_service import make_session_title
 from app.services.transcript_service import build_transcript
 
-_SESSION_LOCKS: dict[UUID, asyncio.Lock] = {}
-
 
 class ChatService:
     def __init__(self, db: Session, qwen_client) -> None:
@@ -26,34 +23,25 @@ class ChatService:
     async def stream_chat(self, *, session_id: UUID, user_message: str) -> AsyncIterator[str]:
         session, normalized_message = self.prepare_stream(session_id=session_id, user_message=user_message)
 
-        async with self._session_lock(session.id):
-            user_record = self._persist_user_message(session, normalized_message)
-            transcript = self._build_session_transcript(session.id)
+        self._persist_user_message(session.id, normalized_message)
+        transcript = self._build_session_transcript(session.id)
 
-            yield format_sse("start", StreamStartEvent(session_id=session.id).model_dump(mode="json"))
+        yield format_sse("start", StreamStartEvent(session_id=session.id).model_dump(mode="json"))
 
-            assistant_chunks: list[str] = []
-            try:
-                async for delta in self._qwen_client.stream_response(transcript):
-                    assistant_chunks.append(delta)
-                    yield format_sse("delta", StreamDeltaEvent(text=delta).model_dump())
-            except Exception:
-                yield format_sse("error", StreamErrorEvent(error="Chat generation failed").model_dump())
-                return
+        assistant_chunks: list[str] = []
+        try:
+            async for delta in self._qwen_client.stream_response(transcript):
+                assistant_chunks.append(delta)
+                yield format_sse("delta", StreamDeltaEvent(text=delta).model_dump())
+        except Exception:
+            yield format_sse("error", StreamErrorEvent(error="Chat generation failed").model_dump())
+            return
 
-            assistant_record = self._create_message(
-                session_id=session.id,
-                role=MessageRole.ASSISTANT,
-                content="".join(assistant_chunks),
-                sequence=user_record.sequence + 1,
-            )
-            self._db.commit()
-            self._db.refresh(assistant_record)
-
-            yield format_sse(
-                "done",
-                StreamDoneEvent(message_id=assistant_record.id, session_id=session.id).model_dump(mode="json"),
-            )
+        assistant_record = self._persist_assistant_message(session.id, "".join(assistant_chunks))
+        yield format_sse(
+            "done",
+            StreamDoneEvent(message_id=assistant_record.id, session_id=session.id).model_dump(mode="json"),
+        )
 
     def prepare_stream(self, *, session_id: UUID, user_message: str) -> tuple[ChatSession, str]:
         session = self._require_session(session_id)
@@ -68,7 +56,8 @@ class ChatService:
             raise LookupError("Session not found")
         return session
 
-    def _persist_user_message(self, session: ChatSession, content: str) -> ChatMessage:
+    def _persist_user_message(self, session_id: UUID, content: str) -> ChatMessage:
+        session = self._lock_session(session_id)
         sequence = self._next_sequence(session.id)
         message = self._create_message(
             session_id=session.id,
@@ -78,6 +67,18 @@ class ChatService:
         )
         if session.title is None:
             session.title = make_session_title(content)
+        self._db.commit()
+        self._db.refresh(message)
+        return message
+
+    def _persist_assistant_message(self, session_id: UUID, content: str) -> ChatMessage:
+        session = self._lock_session(session_id)
+        message = self._create_message(
+            session_id=session.id,
+            role=MessageRole.ASSISTANT,
+            content=content,
+            sequence=self._next_sequence(session.id),
+        )
         self._db.commit()
         self._db.refresh(message)
         return message
@@ -117,5 +118,9 @@ class ChatService:
         self._db.flush()
         return message
 
-    def _session_lock(self, session_id: UUID) -> asyncio.Lock:
-        return _SESSION_LOCKS.setdefault(session_id, asyncio.Lock())
+    def _lock_session(self, session_id: UUID) -> ChatSession:
+        statement = select(ChatSession).where(ChatSession.id == session_id).with_for_update()
+        session = self._db.scalar(statement)
+        if session is None:
+            raise LookupError("Session not found")
+        return session
