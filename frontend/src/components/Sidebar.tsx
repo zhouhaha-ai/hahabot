@@ -1,12 +1,21 @@
-const sampleSessions = [
-  {
-    id: "draft-session",
-    title: "Welcome chat",
-    updatedAt: "Just now",
-  },
-];
+import type { SessionSummary } from "../types/chat";
+import { SessionList } from "./SessionList";
 
-export function Sidebar() {
+type SidebarProps = {
+  activeSessionId: string | null;
+  onCreateSession: () => Promise<void>;
+  onDeleteSession: (sessionId: string) => Promise<void>;
+  onSelectSession: (sessionId: string) => Promise<void>;
+  sessions: SessionSummary[];
+};
+
+export function Sidebar({
+  activeSessionId,
+  onCreateSession,
+  onDeleteSession,
+  onSelectSession,
+  sessions,
+}: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
@@ -15,7 +24,7 @@ export function Sidebar() {
         <p>Simple chat workspace with resumable conversations.</p>
       </div>
 
-      <button className="sidebar__new-chat" type="button">
+      <button className="sidebar__new-chat" onClick={() => void onCreateSession()} type="button">
         New Chat
       </button>
 
@@ -24,16 +33,12 @@ export function Sidebar() {
           <span>Recent Sessions</span>
         </div>
 
-        <ul className="session-list" aria-label="Session history">
-          {sampleSessions.map((session) => (
-            <li key={session.id}>
-              <button className="session-list__item session-list__item--active" type="button">
-                <span className="session-list__title">{session.title}</span>
-                <span className="session-list__meta">{session.updatedAt}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <SessionList
+          activeSessionId={activeSessionId}
+          onDeleteSession={onDeleteSession}
+          onSelectSession={onSelectSession}
+          sessions={sessions}
+        />
       </div>
     </aside>
   );

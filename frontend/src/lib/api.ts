@@ -1,20 +1,59 @@
 import type { SessionDetail, SessionSummary } from "../types/chat";
 
-export class ApiClient {
+type BackendSessionSummary = {
+  id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type BackendChatMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  sequence: number;
+  created_at: string;
+};
+
+type BackendSessionDetail = {
+  session: BackendSessionSummary;
+  messages: BackendChatMessage[];
+};
+
+export interface ChatApiClient {
+  createSession(): Promise<SessionSummary>;
+  listSessions(): Promise<SessionSummary[]>;
+  getSession(sessionId: string): Promise<SessionDetail>;
+  deleteSession(sessionId: string): Promise<{ ok: boolean }>;
+}
+
+export class ApiClient implements ChatApiClient {
   constructor(private readonly baseUrl = "/api") {}
 
   async createSession(): Promise<SessionSummary> {
-    return this.request<SessionSummary>("/sessions", {
+    const session = await this.request<BackendSessionSummary>("/sessions", {
       method: "POST",
     });
+    return mapSessionSummary(session);
   }
 
   async listSessions(): Promise<SessionSummary[]> {
-    return this.request<SessionSummary[]>("/sessions");
+    const sessions = await this.request<BackendSessionSummary[]>("/sessions");
+    return sessions.map(mapSessionSummary);
   }
 
   async getSession(sessionId: string): Promise<SessionDetail> {
-    return this.request<SessionDetail>(`/sessions/${sessionId}`);
+    const detail = await this.request<BackendSessionDetail>(`/sessions/${sessionId}`);
+    return {
+      session: mapSessionSummary(detail.session),
+      messages: detail.messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        sequence: message.sequence,
+        createdAt: message.created_at,
+      })),
+    };
   }
 
   async deleteSession(sessionId: string): Promise<{ ok: boolean }> {
@@ -41,3 +80,12 @@ export class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+function mapSessionSummary(session: BackendSessionSummary): SessionSummary {
+  return {
+    id: session.id,
+    title: session.title,
+    createdAt: session.created_at,
+    updatedAt: session.updated_at,
+  };
+}

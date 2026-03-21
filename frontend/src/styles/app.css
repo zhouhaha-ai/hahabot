@@ -86,9 +86,18 @@
 
 .session-list {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.session-list__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
 }
 
 .session-list__item {
@@ -111,6 +120,20 @@
 
 .session-list__title {
   font-weight: 700;
+}
+
+.session-list__empty {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.session-list__delete {
+  border: 1px solid rgba(24, 34, 48, 0.08);
+  border-radius: var(--radius-md);
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--color-muted);
+  cursor: pointer;
 }
 
 .chat-pane {
@@ -149,6 +172,10 @@
   border-radius: var(--radius-xl);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.75), rgba(255, 248, 240, 0.95));
+}
+
+.chat-pane__messages {
+  flex: 1;
 }
 
 .chat-pane__empty-badge {
