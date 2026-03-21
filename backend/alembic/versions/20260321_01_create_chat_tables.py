@@ -44,6 +44,7 @@ def upgrade() -> None:
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("sequence", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.UniqueConstraint("session_id", "sequence", name="uq_chat_messages_session_sequence"),
     )
     op.create_index("ix_chat_messages_session_id", "chat_messages", ["session_id"])
 

@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Text, Uuid, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -37,6 +37,7 @@ class ChatSession(Base):
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
+    __table_args__ = (UniqueConstraint("session_id", "sequence", name="uq_chat_messages_session_sequence"),)
 
     id: Mapped[UUID] = mapped_column(Uuid(), primary_key=True, default=uuid4)
     session_id: Mapped[UUID] = mapped_column(Uuid(), ForeignKey("chat_sessions.id", ondelete="CASCADE"), index=True)
