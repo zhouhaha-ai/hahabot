@@ -61,8 +61,8 @@ it("appends streamed assistant text into a single bubble", async () => {
 
   render(<App apiClient={apiClient} />);
 
-  await user.type(await screen.findByPlaceholderText(/send a message/i), "Hello");
-  await user.click(screen.getByRole("button", { name: /send/i }));
+  await user.type(await screen.findByPlaceholderText(/问问哈哈吧/i), "Hello");
+  await user.click(screen.getByRole("button", { name: /发送消息/i }));
 
   expect(await screen.findByText("Hello")).toBeInTheDocument();
   expect(await screen.findByText("Hi there")).toBeInTheDocument();
@@ -86,8 +86,8 @@ it("marks the assistant bubble as failed when the stream errors", async () => {
 
   render(<App apiClient={apiClient} />);
 
-  await user.type(await screen.findByPlaceholderText(/send a message/i), "Hello");
-  await user.click(screen.getByRole("button", { name: /send/i }));
+  await user.type(await screen.findByPlaceholderText(/问问哈哈吧/i), "Hello");
+  await user.click(screen.getByRole("button", { name: /发送消息/i }));
 
-  expect(await screen.findByText(/generation failed/i)).toBeInTheDocument();
+  expect(await screen.findByText(/生成失败/i)).toBeInTheDocument();
 });

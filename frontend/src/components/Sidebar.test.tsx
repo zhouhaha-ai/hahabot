@@ -33,6 +33,7 @@ it("loads sessions and selects the newest session", async () => {
   const history = await screen.findByRole("list", { name: /session history/i });
   expect(within(history).getByText("Most recent chat")).toBeInTheDocument();
   expect(apiClient.getSession).toHaveBeenCalledWith("session-2");
+  expect(screen.getByText(/最近历史/i)).toBeInTheDocument();
 });
 
 it("deletes the active session and falls back to empty state", async () => {
@@ -50,5 +51,5 @@ it("deletes the active session and falls back to empty state", async () => {
 
   await user.click(await screen.findByRole("button", { name: /delete session/i }));
 
-  expect(await screen.findByText(/start a conversation/i)).toBeInTheDocument();
+  expect(await screen.findByText(/今天我能帮你做些什么/i)).toBeInTheDocument();
 });

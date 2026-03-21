@@ -13,9 +13,12 @@ export function MessageList({ messages }: MessageListProps) {
           key={message.id}
         >
           <article className={`message-bubble message-bubble--${message.role}`}>
+            <span className="message-bubble__label">
+              {message.role === "user" ? "你" : "哈哈机器人"}
+            </span>
             <p>{message.content}</p>
             {message.role === "assistant" && message.status === "failed" ? (
-              <span className="message-bubble__status">Generation failed</span>
+              <span className="message-bubble__status">生成失败</span>
             ) : null}
           </article>
         </li>

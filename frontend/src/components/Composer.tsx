@@ -23,16 +23,24 @@ export function Composer({ disabled, isStreaming, onSend }: ComposerProps) {
 
   return (
     <form className="composer" onSubmit={(event) => void handleSubmit(event)}>
+      <button className="composer__attach" type="button" aria-label="附件">
+        <span aria-hidden="true">+</span>
+      </button>
       <textarea
         className="composer__input"
         disabled={disabled}
         onChange={(event) => setMessage(event.target.value)}
-        placeholder="Send a message"
-        rows={3}
+        placeholder="问问哈哈吧..."
+        rows={1}
         value={message}
       />
-      <button className="composer__submit" disabled={disabled || isStreaming} type="submit">
-        {isStreaming ? "Streaming..." : "Send"}
+      <button
+        aria-label="发送消息"
+        className="composer__submit"
+        disabled={disabled || isStreaming}
+        type="submit"
+      >
+        <span aria-hidden="true">{isStreaming ? "…" : "↑"}</span>
       </button>
     </form>
   );

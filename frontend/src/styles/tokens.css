@@ -1,27 +1,22 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap");
+
 :root {
   color-scheme: light;
-  font-family:
-    "IBM Plex Sans",
-    "Segoe UI",
-    sans-serif;
-  --color-ink: #182230;
-  --color-muted: #5d6878;
-  --color-surface: #f4efe4;
-  --color-surface-strong: #fffaf0;
-  --color-panel: rgba(255, 250, 240, 0.82);
-  --color-panel-strong: #fffdf7;
-  --color-accent: #d16b37;
-  --color-accent-strong: #b95422;
-  --color-border: rgba(24, 34, 48, 0.1);
-  --color-shadow: rgba(34, 34, 34, 0.08);
-  --radius-xl: 28px;
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  --color-ink: #2c2f30;
+  --color-muted: #595c5d;
+  --color-surface: #f5f6f7;
+  --color-primary: #006385;
+  --color-primary-soft: #4cbff4;
+  --color-secondary: #455f6b;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  background: var(--color-surface);
 }
 
 body {
@@ -29,9 +24,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(209, 107, 55, 0.18), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(114, 155, 120, 0.18), transparent 28%),
-    linear-gradient(180deg, #f8f2e8 0%, #efe5d4 100%);
+    radial-gradient(circle at top center, rgba(76, 191, 244, 0.14), transparent 26%),
+    linear-gradient(180deg, #f7f8f9 0%, #f2f4f5 100%);
   color: var(--color-ink);
 }
 

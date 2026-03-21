@@ -14,7 +14,7 @@ export function SessionList({
   sessions,
 }: SessionListProps) {
   if (sessions.length === 0) {
-    return <p className="session-list__empty">No chats yet.</p>;
+    return <p className="session-list__empty">还没有历史会话</p>;
   }
 
   return (
@@ -30,6 +30,9 @@ export function SessionList({
               onClick={() => void onSelectSession(session.id)}
               type="button"
             >
+              <span className="session-list__icon" aria-hidden="true">
+                {isActive ? "●" : "◦"}
+              </span>
               <span className="session-list__title">{title}</span>
               <span className="session-list__meta">{formatUpdatedAt(session.updatedAt)}</span>
             </button>
@@ -39,7 +42,7 @@ export function SessionList({
               onClick={() => void onDeleteSession(session.id)}
               type="button"
             >
-              Delete
+              <span aria-hidden="true">×</span>
             </button>
           </li>
         );
@@ -49,10 +52,10 @@ export function SessionList({
 }
 
 function formatUpdatedAt(updatedAt: string) {
-  return new Date(updatedAt).toLocaleString("en-US", {
-    month: "short",
+  return new Date(updatedAt).toLocaleString("zh-CN", {
+    month: "numeric",
     day: "numeric",
-    hour: "numeric",
+    hour: "2-digit",
     minute: "2-digit",
   });
 }

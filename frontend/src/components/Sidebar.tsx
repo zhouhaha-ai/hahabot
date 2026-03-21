@@ -19,18 +19,25 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
-        <span className="sidebar__eyebrow">haha-chatbot</span>
-        <h1>Memory stays in session</h1>
-        <p>Simple chat workspace with resumable conversations.</p>
+        <div className="sidebar__brand-mark" aria-hidden="true">
+          <span>☺</span>
+        </div>
+        <div className="sidebar__brand-copy">
+          <h1>哈哈机器人</h1>
+          <p>您的会话管家</p>
+        </div>
       </div>
 
       <button className="sidebar__new-chat" onClick={() => void onCreateSession()} type="button">
-        New Chat
+        <span className="sidebar__new-chat-icon" aria-hidden="true">
+          +
+        </span>
+        <span>新聊天</span>
       </button>
 
       <div className="sidebar__section">
         <div className="sidebar__section-header">
-          <span>Recent Sessions</span>
+          <span>最近历史</span>
         </div>
 
         <SessionList

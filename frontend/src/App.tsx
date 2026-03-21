@@ -94,8 +94,6 @@ export function App({ apiClient: client = apiClient }: AppProps) {
       />
       <ChatPane
         canSendMessage={activeSessionId !== null}
-        emptyStateTitle="Start a conversation"
-        emptyStateDescription="Your session memory stays inside the active chat. Pick a chat or start a new one."
         isStreaming={isStreaming}
         messages={activeMessages}
         onSendMessage={handleSendMessage}
