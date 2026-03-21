@@ -28,3 +28,7 @@ class SessionMessage(BaseModel):
 class SessionDetail(BaseModel):
     session: SessionSummary
     messages: list[SessionMessage]
+
+
+class DeleteSessionResponse(BaseModel):
+    ok: bool

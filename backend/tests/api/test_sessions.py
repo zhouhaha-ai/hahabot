@@ -23,3 +23,4 @@ def test_delete_session_removes_messages(client, seeded_session):
 
     assert response.status_code == 200
     assert response.json() == {"ok": True}
+    assert client.get(f"/api/sessions/{seeded_session.id}").status_code == 404

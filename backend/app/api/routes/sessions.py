@@ -13,7 +13,7 @@ from app.repositories.sessions import (
     get_chat_session,
     list_chat_sessions,
 )
-from app.schemas.session import SessionDetail, SessionMessage, SessionSummary
+from app.schemas.session import DeleteSessionResponse, SessionDetail, SessionMessage, SessionSummary
 
 router = APIRouter()
 
@@ -43,11 +43,11 @@ def get_session(session_id: UUID, db: Session = Depends(get_db)) -> SessionDetai
     )
 
 
-@router.delete("/{session_id}")
-def delete_session(session_id: UUID, db: Session = Depends(get_db)) -> dict[str, bool]:
+@router.delete("/{session_id}", response_model=DeleteSessionResponse)
+def delete_session(session_id: UUID, db: Session = Depends(get_db)) -> DeleteSessionResponse:
     session = get_chat_session(db, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
     delete_chat_session(db, session)
-    return {"ok": True}
+    return DeleteSessionResponse(ok=True)
