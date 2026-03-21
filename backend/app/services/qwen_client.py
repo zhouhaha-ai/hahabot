@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import AsyncIterator
 
-from openai import AsyncOpenAI
-
-from app.core.config import get_settings
-
 
 class QwenClient:
-    def __init__(self, *, api_key: str, base_url: str, model: str) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        model: str | None = None,
+    ) -> None:
+        from openai import AsyncOpenAI
+
         self._model = model
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        self._client = AsyncOpenAI(
+            api_key=api_key or os.getenv("QWEN_API_KEY", ""),
+            base_url=base_url or os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+        )
+        self._model = model or os.getenv("QWEN_MODEL", "qwen-plus")
 
     async def stream_response(self, messages: list[dict[str, str]]) -> AsyncIterator[str]:
         stream = await self._client.chat.completions.create(
@@ -27,9 +36,4 @@ class QwenClient:
 
 @lru_cache(maxsize=1)
 def get_qwen_client() -> QwenClient:
-    settings = get_settings()
-    return QwenClient(
-        api_key=settings.qwen_api_key,
-        base_url=settings.qwen_base_url,
-        model=settings.qwen_model,
-    )
+    return QwenClient()

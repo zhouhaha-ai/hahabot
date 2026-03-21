@@ -24,11 +24,13 @@ async def stream_chat(
     service = ChatService(db, qwen_client)
 
     try:
-        event_generator = service.stream_chat(session_id=session_id, user_message=payload.message)
+        service.prepare_stream(session_id=session_id, user_message=payload.message)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    event_generator = service.stream_chat(session_id=session_id, user_message=payload.message)
 
     return StreamingResponse(
         event_generator,

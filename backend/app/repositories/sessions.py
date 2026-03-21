@@ -49,9 +49,3 @@ def get_chat_session(db: Session, session_id: UUID) -> ChatSession | None:
 def delete_chat_session(db: Session, session: ChatSession) -> None:
     db.delete(session)
     db.commit()
-
-
-def update_chat_session_title(db: Session, session: ChatSession, title: str) -> ChatSession:
-    session.title = title
-    db.flush()
-    return session
