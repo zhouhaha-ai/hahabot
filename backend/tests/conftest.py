@@ -19,6 +19,17 @@ from sqlalchemy.pool import StaticPool
 from app.db.models import Base, ChatMessage, ChatSession, MessageRole
 from app.db.session import get_db
 from app.main import app
+from app.services.qwen_client import get_qwen_client
+
+
+class FakeQwenClient:
+    async def stream_response(self, messages: list[dict[str, str]]):
+        prompt = messages[-1]["content"]
+        if prompt == "FAIL_STREAM":
+            raise RuntimeError("synthetic stream failure")
+
+        for chunk in ("Hi", " there"):
+            yield chunk
 
 
 @pytest.fixture
@@ -44,7 +55,11 @@ def client(db_session: Session) -> TestClient:
     def override_get_db():
         yield db_session
 
+    def override_qwen_client():
+        return FakeQwenClient()
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_qwen_client] = override_qwen_client
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
