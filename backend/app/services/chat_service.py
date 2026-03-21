@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from uuid import UUID
 
@@ -14,6 +15,8 @@ from app.services.sse import format_sse
 from app.services.title_service import make_session_title
 from app.services.transcript_service import build_transcript
 
+_SESSION_LOCKS: dict[UUID, asyncio.Lock] = {}
+
 
 class ChatService:
     def __init__(self, db: Session, qwen_client) -> None:
@@ -23,25 +26,26 @@ class ChatService:
     async def stream_chat(self, *, session_id: UUID, user_message: str) -> AsyncIterator[str]:
         session, normalized_message = self.prepare_stream(session_id=session_id, user_message=user_message)
 
-        self._persist_user_message(session.id, normalized_message)
-        transcript = self._build_session_transcript(session.id)
+        async with self._session_lock(session.id):
+            self._persist_user_message(session.id, normalized_message)
+            transcript = self._build_session_transcript(session.id)
 
-        yield format_sse("start", StreamStartEvent(session_id=session.id).model_dump(mode="json"))
+            yield format_sse("start", StreamStartEvent(session_id=session.id).model_dump(mode="json"))
 
-        assistant_chunks: list[str] = []
-        try:
-            async for delta in self._qwen_client.stream_response(transcript):
-                assistant_chunks.append(delta)
-                yield format_sse("delta", StreamDeltaEvent(text=delta).model_dump())
-        except Exception:
-            yield format_sse("error", StreamErrorEvent(error="Chat generation failed").model_dump())
-            return
+            assistant_chunks: list[str] = []
+            try:
+                async for delta in self._qwen_client.stream_response(transcript):
+                    assistant_chunks.append(delta)
+                    yield format_sse("delta", StreamDeltaEvent(text=delta).model_dump())
+            except Exception:
+                yield format_sse("error", StreamErrorEvent(error="Chat generation failed").model_dump())
+                return
 
-        assistant_record = self._persist_assistant_message(session.id, "".join(assistant_chunks))
-        yield format_sse(
-            "done",
-            StreamDoneEvent(message_id=assistant_record.id, session_id=session.id).model_dump(mode="json"),
-        )
+            assistant_record = self._persist_assistant_message(session.id, "".join(assistant_chunks))
+            yield format_sse(
+                "done",
+                StreamDoneEvent(message_id=assistant_record.id, session_id=session.id).model_dump(mode="json"),
+            )
 
     def prepare_stream(self, *, session_id: UUID, user_message: str) -> tuple[ChatSession, str]:
         session = self._require_session(session_id)
@@ -124,3 +128,6 @@ class ChatService:
         if session is None:
             raise LookupError("Session not found")
         return session
+
+    def _session_lock(self, session_id: UUID) -> asyncio.Lock:
+        return _SESSION_LOCKS.setdefault(session_id, asyncio.Lock())
