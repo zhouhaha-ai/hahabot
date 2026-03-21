@@ -25,6 +25,7 @@ it("loads sessions and selects the newest session", async () => {
     listSessions: vi.fn().mockResolvedValue([olderSession, newerSession]),
     getSession: vi.fn().mockResolvedValue(buildDetail(newerSession)),
     deleteSession: vi.fn(),
+    streamMessage: vi.fn(),
   };
 
   render(<App apiClient={apiClient} />);
@@ -41,6 +42,7 @@ it("deletes the active session and falls back to empty state", async () => {
     listSessions: vi.fn().mockResolvedValue([session]),
     getSession: vi.fn().mockResolvedValue(buildDetail(session)),
     deleteSession: vi.fn().mockResolvedValue({ ok: true }),
+    streamMessage: vi.fn(),
   };
   const user = userEvent.setup();
 

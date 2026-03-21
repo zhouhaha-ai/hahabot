@@ -25,6 +25,7 @@ export interface ChatApiClient {
   listSessions(): Promise<SessionSummary[]>;
   getSession(sessionId: string): Promise<SessionDetail>;
   deleteSession(sessionId: string): Promise<{ ok: boolean }>;
+  streamMessage(sessionId: string, message: string): Promise<Response>;
 }
 
 export class ApiClient implements ChatApiClient {
@@ -59,6 +60,16 @@ export class ApiClient implements ChatApiClient {
   async deleteSession(sessionId: string): Promise<{ ok: boolean }> {
     return this.request<{ ok: boolean }>(`/sessions/${sessionId}`, {
       method: "DELETE",
+    });
+  }
+
+  async streamMessage(sessionId: string, message: string): Promise<Response> {
+    return fetch(`${this.baseUrl}/sessions/${sessionId}/messages/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message }),
     });
   }
 

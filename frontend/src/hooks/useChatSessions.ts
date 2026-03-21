@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import type { ChatApiClient } from "../lib/api";
 import type { ChatMessage, SessionSummary } from "../types/chat";
@@ -11,6 +11,7 @@ type UseChatSessionsResult = {
   createSession: () => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   selectSession: (sessionId: string) => Promise<void>;
+  setActiveMessages: Dispatch<SetStateAction<ChatMessage[]>>;
 };
 
 export function useChatSessions(apiClient: ChatApiClient): UseChatSessionsResult {
@@ -85,6 +86,7 @@ export function useChatSessions(apiClient: ChatApiClient): UseChatSessionsResult
     createSession,
     deleteSession,
     selectSession,
+    setActiveMessages,
   };
 }
 

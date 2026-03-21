@@ -11,6 +11,8 @@ export type ChatMessage = {
   content: string;
   sequence: number;
   createdAt: string;
+  status?: "complete" | "streaming" | "failed";
+  errorMessage?: string;
 };
 
 export type SessionDetail = {

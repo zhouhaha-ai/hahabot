@@ -1,17 +1,25 @@
 import type { ChatMessage } from "../types/chat";
+import { Composer } from "./Composer";
+import { MessageList } from "./MessageList";
 
 type ChatPaneProps = {
   emptyStateTitle: string;
   emptyStateDescription: string;
   sessionTitle: string | null;
   messages: ChatMessage[];
+  canSendMessage: boolean;
+  isStreaming: boolean;
+  onSendMessage: (message: string) => Promise<void>;
 };
 
 export function ChatPane({
+  canSendMessage,
   emptyStateTitle,
   emptyStateDescription,
+  isStreaming,
   sessionTitle,
   messages,
+  onSendMessage,
 }: ChatPaneProps) {
   const isEmpty = messages.length === 0;
 
@@ -34,8 +42,16 @@ export function ChatPane({
           </div>
         </section>
       ) : (
-        <section className="chat-pane__messages" aria-label="Message transcript" />
+        <section className="chat-pane__messages">
+          <MessageList messages={messages} />
+        </section>
       )}
+
+      <Composer
+        disabled={!canSendMessage}
+        isStreaming={isStreaming}
+        onSend={onSendMessage}
+      />
     </main>
   );
 }
