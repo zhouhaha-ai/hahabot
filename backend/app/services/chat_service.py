@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from contextlib import contextmanager
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -27,25 +28,26 @@ class ChatService:
         session, normalized_message = self.prepare_stream(session_id=session_id, user_message=user_message)
 
         async with self._session_lock(session.id):
-            self._persist_user_message(session.id, normalized_message)
-            transcript = self._build_session_transcript(session.id)
+            with self._distributed_session_lock(session.id):
+                self._persist_user_message(session.id, normalized_message)
+                transcript = self._build_session_transcript(session.id)
 
-            yield format_sse("start", StreamStartEvent(session_id=session.id).model_dump(mode="json"))
+                yield format_sse("start", StreamStartEvent(session_id=session.id).model_dump(mode="json"))
 
-            assistant_chunks: list[str] = []
-            try:
-                async for delta in self._qwen_client.stream_response(transcript):
-                    assistant_chunks.append(delta)
-                    yield format_sse("delta", StreamDeltaEvent(text=delta).model_dump())
-            except Exception:
-                yield format_sse("error", StreamErrorEvent(error="Chat generation failed").model_dump())
-                return
+                assistant_chunks: list[str] = []
+                try:
+                    async for delta in self._qwen_client.stream_response(transcript):
+                        assistant_chunks.append(delta)
+                        yield format_sse("delta", StreamDeltaEvent(text=delta).model_dump())
+                except Exception:
+                    yield format_sse("error", StreamErrorEvent(error="Chat generation failed").model_dump())
+                    return
 
-            assistant_record = self._persist_assistant_message(session.id, "".join(assistant_chunks))
-            yield format_sse(
-                "done",
-                StreamDoneEvent(message_id=assistant_record.id, session_id=session.id).model_dump(mode="json"),
-            )
+                assistant_record = self._persist_assistant_message(session.id, "".join(assistant_chunks))
+                yield format_sse(
+                    "done",
+                    StreamDoneEvent(message_id=assistant_record.id, session_id=session.id).model_dump(mode="json"),
+                )
 
     def prepare_stream(self, *, session_id: UUID, user_message: str) -> tuple[ChatSession, str]:
         session = self._require_session(session_id)
@@ -131,3 +133,19 @@ class ChatService:
 
     def _session_lock(self, session_id: UUID) -> asyncio.Lock:
         return _SESSION_LOCKS.setdefault(session_id, asyncio.Lock())
+
+    @contextmanager
+    def _distributed_session_lock(self, session_id: UUID):
+        if not self._uses_postgresql():
+            yield
+            return
+
+        key = session_id.int % (2**63 - 1)
+        self._db.execute(select(func.pg_advisory_lock(key)))
+        try:
+            yield
+        finally:
+            self._db.execute(select(func.pg_advisory_unlock(key)))
+
+    def _uses_postgresql(self) -> bool:
+        return self._db.get_bind().dialect.name == "postgresql"
