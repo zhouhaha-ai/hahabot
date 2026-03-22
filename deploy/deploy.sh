@@ -3,6 +3,8 @@
 set -euo pipefail
 
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+SMOKE_CHECK_RETRIES="${SMOKE_CHECK_RETRIES:-30}"
+SMOKE_CHECK_DELAY_SECONDS="${SMOKE_CHECK_DELAY_SECONDS:-2}"
 
 require_file() {
   local path="$1"
@@ -62,9 +64,29 @@ compose() {
   sudo docker compose "$@"
 }
 
+smoke_check_api() {
+  local attempt=1
+  local max_attempts="$SMOKE_CHECK_RETRIES"
+
+  while (( attempt <= max_attempts )); do
+    if curl --fail --silent --show-error http://localhost/api/sessions >/dev/null; then
+      return 0
+    fi
+
+    if (( attempt == max_attempts )); then
+      echo "Smoke check failed after ${max_attempts} attempts" >&2
+      return 1
+    fi
+
+    sleep "$SMOKE_CHECK_DELAY_SECONDS"
+    attempt=$((attempt + 1))
+  done
+}
+
 main() {
   require_command docker
   require_command curl
+  require_command sleep
   require_file "$PROJECT_ROOT/.env"
   require_file "$PROJECT_ROOT/docker-compose.yml"
   require_env_var_in_file "DOCKERHUB_NAMESPACE" "$PROJECT_ROOT/.env"
@@ -81,7 +103,7 @@ main() {
   compose ps
 
   echo "[deploy] smoke-checking proxied API"
-  curl --fail --silent --show-error http://localhost/api/sessions >/dev/null
+  smoke_check_api
 
   echo "[deploy] deployment succeeded"
 }
