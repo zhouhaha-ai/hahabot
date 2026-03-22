@@ -23,7 +23,7 @@ export function Sidebar({
           <span>☺</span>
         </div>
         <div className="sidebar__brand-copy">
-          <h1>哈哈机器人</h1>
+          <h1>哈哈chatbot</h1>
           <p>您的会话管家</p>
         </div>
       </div>
