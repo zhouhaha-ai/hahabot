@@ -15,7 +15,6 @@ on:
         description: Docker image tag to deploy (latest or sha-<40 hex chars>)
         required: true
         default: latest
-        type: string
 
 jobs:
   deploy:
