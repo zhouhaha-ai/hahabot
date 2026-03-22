@@ -48,6 +48,13 @@ Recommended container-side database URL:
 DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/haha_chatbot
 ```
 
+Ensure these deploy assets exist on the server before enabling CD:
+
+- `deploy.sh`
+- `deploy/deploy.sh`
+- `deploy/remote-deploy.sh`
+- `docker-compose.yml`
+
 ## Publish Images
 
 GitHub Actions publishes two application images to Docker Hub on pushes to `main`, pushes to `codex/haha-chatbot`, and manual workflow dispatches:
@@ -62,6 +69,79 @@ Required GitHub repository secrets:
 
 The database continues to run from the official `postgres:16-alpine` image.
 Only pushes to `main` refresh the `latest` tag. Other workflow runs publish `sha-<commit>` tags for explicit deployment.
+
+## Bootstrap Manual CD
+
+### 1. Create a Deploy SSH Key
+
+Generate a dedicated key pair for GitHub Actions:
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-hahabot-deploy" -f ~/.ssh/hahabot_deploy
+```
+
+Use:
+
+- `~/.ssh/hahabot_deploy` as `DEPLOY_SSH_PRIVATE_KEY`
+- `~/.ssh/hahabot_deploy.pub` for the server `authorized_keys`
+
+### 2. Install the Public Key
+
+On the server:
+
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+cat ~/.ssh/hahabot_deploy.pub >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+### 3. Pin the SSH Host Key
+
+Generate the exact known-hosts line locally:
+
+```bash
+ssh-keyscan -H <your-server-ip>
+```
+
+Save the full output line as the repository secret `DEPLOY_SSH_KNOWN_HOSTS`.
+Do not run `ssh-keyscan` inside the workflow.
+
+### 4. Add GitHub CD Secrets
+
+Add these repository secrets:
+
+- `DEPLOY_HOST`
+- `DEPLOY_USER`
+- `DEPLOY_PORT` (optional, defaults to `22`)
+- `DEPLOY_SSH_PRIVATE_KEY`
+- `DEPLOY_SSH_KNOWN_HOSTS`
+
+### 5. Configure Passwordless sudo
+
+GitHub Actions deploys by running:
+
+```bash
+sudo /home/ubuntu/hahabot/deploy/remote-deploy.sh <image_tag>
+```
+
+Install a dedicated sudoers rule:
+
+```bash
+sudo visudo -f /etc/sudoers.d/hahabot-deploy
+```
+
+Contents:
+
+```text
+ubuntu ALL=(root) NOPASSWD: /home/ubuntu/hahabot/deploy/remote-deploy.sh *
+```
+
+Then lock down permissions:
+
+```bash
+sudo chmod 440 /etc/sudoers.d/hahabot-deploy
+```
 
 ## Start the Stack
 
@@ -80,24 +160,16 @@ http://<your-server-ip>/
 
 ## Update Deployment
 
-After new images have been published, rerun:
+Routine releases should use the GitHub Actions workflow `Deploy Production`.
 
-```bash
-./deploy.sh
-```
+When you run it manually, provide one of these tags:
 
-If the server is using a git checkout, a typical update is:
+- `latest`
+- `sha-<github-commit-sha>`
 
-```bash
-git pull
-./deploy.sh
-```
+The workflow validates the tag locally, SSHes into the server, updates `.env`, runs `deploy/remote-deploy.sh`, and verifies the running frontend/backend image refs.
 
-If you need to deploy a specific image revision, override `IMAGE_TAG` before running:
-
-```bash
-IMAGE_TAG=sha-<github-commit-sha> ./deploy.sh
-```
+Manual server-side `./deploy.sh` is still useful for first-time bootstrap and emergency debugging.
 
 ## Operational Checks
 
@@ -117,7 +189,7 @@ docker compose logs -f postgres
 
 ## Stable Deployment Script
 
-The repository includes a root entrypoint [`deploy.sh`](/Users/zhouhaha/Desktop/haha-bot/.worktrees/codex-haha-chatbot/deploy.sh) backed by [`deploy/deploy.sh`](/Users/zhouhaha/Desktop/haha-bot/.worktrees/codex-haha-chatbot/deploy/deploy.sh). It:
+The repository includes a root entrypoint [`deploy.sh`](../deploy.sh) backed by [`deploy/deploy.sh`](./deploy.sh). It:
 
 - verifies `.env` and `docker-compose.yml` exist
 - verifies `DOCKERHUB_NAMESPACE` exists in `.env`
@@ -126,7 +198,20 @@ The repository includes a root entrypoint [`deploy.sh`](/Users/zhouhaha/Desktop/
 - checks `docker compose ps`
 - smoke-checks `http://localhost/api/sessions`
 
+The CD workflow additionally uses [`deploy/remote-deploy.sh`](./remote-deploy.sh) to:
+
+- validate the requested image tag
+- update `.env` idempotently
+- invoke `deploy.sh`
+- print `docker compose ps`
+- verify the running frontend/backend containers use the requested image tag
+- print backend/frontend logs when deployment fails
+
 ## Rollback / Stop
+
+To roll back, run `Deploy Production` again with an older `sha-...` image tag.
+
+To stop the stack manually:
 
 ```bash
 docker compose down
