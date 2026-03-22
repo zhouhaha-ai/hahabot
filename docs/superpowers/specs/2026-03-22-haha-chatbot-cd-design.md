@@ -38,7 +38,7 @@ The design deliberately preserves the current single-server deployment model and
 - Image publishing and deployment stay as separate workflows
 - GitHub Actions authenticates to the server with a dedicated SSH key pair
 - The server remains the execution point for `deploy.sh`
-- The deployment workflow may optionally update `IMAGE_TAG` before invoking `deploy.sh`
+- The deployment workflow persistently updates the server-side `.env` `IMAGE_TAG` before invoking `deploy.sh`
 - The existing server `.env` remains the source of truth for runtime secrets
 
 ## Current-State Constraints
@@ -60,12 +60,13 @@ The full delivery path becomes:
 
 1. `docker-publish.yml` builds and pushes images
 2. `deploy-production.yml` is manually triggered from GitHub Actions
-3. `deploy-production.yml` opens an SSH session to the server
-4. Remote commands:
+3. `deploy-production.yml` validates the requested `image_tag` locally in the GitHub Actions runner before constructing any SSH command
+4. `deploy-production.yml` opens an SSH session to the server only after validation succeeds
+5. Remote commands:
    - change into `/home/ubuntu/hahabot`
-   - update `.env` so `IMAGE_TAG` matches the workflow input
+   - persistently update `.env` so `IMAGE_TAG` matches the workflow input
    - run `./deploy.sh`
-   - print deployment verification output
+   - print deployment verification output, using the same Docker permission model as `deploy.sh`
 
 The server still runs:
 
@@ -100,7 +101,7 @@ Inputs:
 
 - `image_tag`
   - default: `latest`
-  - also supports `sha-<github-commit-sha>`
+  - also supports `sha-<40-char-github-commit-sha>`
 
 Secrets:
 
@@ -108,17 +109,31 @@ Secrets:
 - `DEPLOY_USER`
 - `DEPLOY_PORT` optional, default `22`
 - `DEPLOY_SSH_PRIVATE_KEY`
+- `DEPLOY_SSH_KNOWN_HOSTS`
 
 Execution steps:
 
-1. Check out the repository for access to deployment scripts and context
+1. Validate `image_tag` locally in the workflow runner
 2. Start an SSH agent and load `DEPLOY_SSH_PRIVATE_KEY`
-3. Add the server host to known hosts
-4. SSH to the server
-5. Update `/home/ubuntu/hahabot/.env` so `IMAGE_TAG=<workflow input>`
-6. Run `/home/ubuntu/hahabot/deploy.sh`
-7. Print `docker compose ps`
-8. On failure, print recent backend/frontend logs
+3. Write the pinned host entry from `DEPLOY_SSH_KNOWN_HOSTS` into `known_hosts`
+4. Do not use runtime `ssh-keyscan`; host verification is pinned through secret-managed known-host data
+5. SSH to the server
+6. Update `/home/ubuntu/hahabot/.env` so `IMAGE_TAG=<workflow input>`
+7. Run `/home/ubuntu/hahabot/deploy.sh`
+8. Print `docker compose ps`
+9. On failure, print recent backend/frontend logs
+
+`image_tag` validation rules:
+
+- allow `latest`
+- allow `sha-` followed by exactly 40 lowercase hexadecimal characters
+- reject everything else before any SSH deployment command is constructed
+
+`.env` update rules:
+
+- if `IMAGE_TAG=` already exists, replace that line in place
+- if `IMAGE_TAG=` does not exist, append it exactly once
+- the operation must be idempotent so repeated deploys with the same tag do not create duplicates
 
 ## SSH Key Strategy
 
@@ -127,6 +142,7 @@ The deployment uses a dedicated SSH key pair created specifically for GitHub Act
 Rules:
 
 - The private key is stored only in GitHub Actions secret `DEPLOY_SSH_PRIVATE_KEY`
+- The server host key entry is stored only in GitHub Actions secret `DEPLOY_SSH_KNOWN_HOSTS`
 - The public key is appended to `/home/ubuntu/.ssh/authorized_keys`
 - This key is not reused for local development or personal admin access
 - If the key must be revoked, removing its public half from `authorized_keys` is sufficient
@@ -150,10 +166,14 @@ Required server-side assumptions:
 
 - Docker Engine and Docker Compose plugin are installed
 - the `ubuntu` user can SSH in
+- the deploy user can run the required Docker Compose diagnostics non-interactively, either through direct Docker access or passwordless `sudo docker compose`
 - `deploy.sh` can complete either through direct Docker access or via `sudo`
+- `curl` is installed on the server because `deploy.sh` requires it
+- `.env` contains a valid `DOCKERHUB_NAMESPACE` entry because `deploy.sh` requires it
 - the current runtime secrets remain in `.env`
 
 The CD workflow does not recreate the project directory. It assumes the server was bootstrapped once already.
+Keeping `/home/ubuntu/hahabot` current with repository changes remains a manual operational prerequisite for this first CD version. The workflow assumes the server copy of `deploy.sh`, `deploy/deploy.sh`, and `docker-compose.yml` has already been synchronized with the repository before routine no-SSH releases begin.
 
 ## Remote Command Contract
 
@@ -163,8 +183,8 @@ Allowed remote actions:
 
 - edit the `IMAGE_TAG` line in `/home/ubuntu/hahabot/.env`
 - run `/home/ubuntu/hahabot/deploy.sh`
-- inspect `docker compose ps`
-- inspect `docker compose logs --tail=...`
+- inspect `docker compose ps`, using the same Docker permission behavior as `deploy.sh`
+- inspect `docker compose logs --tail=...`, using the same Docker permission behavior as `deploy.sh`
 
 It should not:
 
@@ -172,6 +192,8 @@ It should not:
 - rebuild images locally
 - rewrite other runtime secrets
 - destroy PostgreSQL volumes
+
+If `IMAGE_TAG` is missing in `.env`, the workflow must create it instead of failing.
 
 ## Deployment Semantics
 
@@ -197,15 +219,15 @@ Flow:
 
 - CI publishes `sha-<commit>`
 - human triggers CD with that exact tag
-- server rewrites `.env` to that tag and redeploys
+- server persistently rewrites `.env` to that tag and redeploys
 
 ## Failure Handling
 
 If remote deployment fails:
 
 - the GitHub Actions job fails visibly
-- the workflow prints `docker compose ps`
-- the workflow prints recent `backend` and `frontend` logs
+- the workflow prints `docker compose ps`, using the same Docker permission model as `deploy.sh`
+- the workflow prints recent `backend` and `frontend` logs, using the same Docker permission model as `deploy.sh`
 
 This should provide enough first-pass debugging context without requiring immediate SSH access.
 
@@ -244,7 +266,7 @@ The implementation should be validated at three levels:
 
 ### Workflow Validation
 
-- manual `workflow_dispatch` dry run against the real repository configuration
+- manual `workflow_dispatch` validation run against the real repository configuration
 - successful SSH authentication using the deploy key
 - successful remote invocation of `deploy.sh`
 
@@ -252,14 +274,16 @@ The implementation should be validated at three levels:
 
 - `GET /api/sessions` returns `200`
 - `docker compose ps` shows healthy running services
-- at least one SSE chat request succeeds after deployment
+- the server-side `.env` contains the requested `IMAGE_TAG`
+- `docker inspect` output shows the deployed frontend and backend containers using the requested image tag
+- at least one direct SSE chat request succeeds after deployment by creating a fresh session and posting a one-line prompt such as `请只回复OK`
 
 ## Open Questions Resolved
 
 - Trigger mode: manual only
 - Authentication mode: SSH private key
 - Deployment action: SSH to server, then run server-side pull-based deployment
-- Server interaction after setup: no regular manual SSH required for routine releases
+- Server interaction after setup: no regular manual SSH required for routine releases, except when the server checkout or deploy assets must be manually synchronized
 
 ## Scope Boundary for Planning
 
@@ -269,6 +293,8 @@ Implementation planning should cover:
 - adding the manual deployment workflow
 - updating README and deployment docs
 - verifying the workflow against the current server layout
+
+Server bootstrap and keeping the server checkout current remain manual and are out of scope for this change.
 
 Implementation planning should not expand into:
 
