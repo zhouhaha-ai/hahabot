@@ -1,0 +1,77 @@
+name: Deploy Production
+
+# Checklist:
+# - manual workflow_dispatch with image_tag input
+# - required secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_PORT, DEPLOY_SSH_PRIVATE_KEY, DEPLOY_SSH_KNOWN_HOSTS
+# - validate image_tag locally before any SSH command
+# - start ssh-agent with the deploy private key
+# - pin known_hosts from a secret
+# - invoke the remote deploy helper on the server
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Docker image tag to deploy (latest or sha-<40 hex chars>)
+        required: true
+        default: latest
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      IMAGE_TAG: ${{ inputs.image_tag }}
+
+    steps:
+      - name: Validate requested image tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$IMAGE_TAG" != "latest" && ! "$IMAGE_TAG" =~ ^sha-[0-9a-f]{40}$ ]]; then
+            echo "Invalid image tag: $IMAGE_TAG" >&2
+            exit 1
+          fi
+
+      - name: Normalize SSH port
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "DEPLOY_PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+
+      - name: Install pinned known_hosts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy requested image tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          printf -v remote_command '%q ' \
+            sudo \
+            /home/ubuntu/hahabot/deploy/remote-deploy.sh \
+            "$IMAGE_TAG"
+
+          ssh \
+            -p "$DEPLOY_PORT" \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "${remote_command% }"
